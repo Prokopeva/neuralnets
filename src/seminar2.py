@@ -5,15 +5,15 @@ import os.path
 import numpy as np
 from src.test_utils import get_preprocessed_data, visualize_weights, visualize_loss
 
-
-def softmax(X: np.array) -> np.array:
+def softmax(Z: np.array) -> np.array:
     """
     TODO 1:
     Compute softmax of 2D array along axis -1
-    :param X: 2D array, shape (N, C)
+    :param Z: 2D array, shape (N, C)
     :return: softmax 2D array, shape (N, C)
     """
-    return X
+    exps = np.exp(Z)
+    return exps / ((np.sum(exps, axis=-1)).reshape(-1, 1) * np.ones(len(exps.T)).reshape(1, -1))
 
 
 def softmax_loss_and_grad(W: np.array, X: np.array, y: np.array, reg: float) -> tuple:
@@ -31,13 +31,22 @@ def softmax_loss_and_grad(W: np.array, X: np.array, y: np.array, reg: float) -> 
     dL_dW = np.zeros_like(W)
     # *****START OF YOUR CODE*****
     # 1. Forward pass, compute loss as sum of data loss and regularization loss [sum(W ** 2)]
+    C = len(W.T)
+    N = len(y)
+    #y_distrib: true y probs (N, C)
+    y_distrib = np.array([[1 if y[i]==j else 0 for j in range(C)] for i in range(N)])
+    #s: (N, C)
+    s = softmax(X @ W)
+    data_loss = -(y_distrib * np.log(s)).sum() / N
+    reg_loss = np.sum(W ** 2)
+    loss = data_loss + reg_loss
 
     # 2. Backward pass, compute intermediate dL/dZ
-
+    dl_dZ = s - y_distrib
     # 3. Compute data gradient dL/dW
-
+    dL_dW = X.T @ dl_dZ / N
     # 4. Compute regularization gradient
-
+    dL_dW += 2 * W
     # 5. Return loss and sum of data + reg gradients
 
     # *****END OF YOUR CODE*****
@@ -88,7 +97,9 @@ class SoftmaxClassifier:
             # replacement is faster than sampling without replacement.              #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+            idx = np.random.choice(num_train, batch_size, replace=True)
+            X_batch = X[idx]
+            y_batch = y[idx]
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
             # evaluate loss and gradient
@@ -101,7 +112,7 @@ class SoftmaxClassifier:
             # Update the weights using the gradient and the learning rate.          #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+            self.W -= grad * learning_rate
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
             if it % 100 == 0:
                 if verbose:
@@ -133,10 +144,10 @@ def train():
     # weights images must look like in lecture slides
 
     # ***** START OF YOUR CODE *****
-    learning_rate = 0
-    reg = 0
-    num_iters = 0
-    batch_size = 0
+    learning_rate = 0.0001
+    reg = 0.0001
+    num_iters = 4000
+    batch_size = 32
     # ******* END OF YOUR CODE ************
 
     (x_train, y_train), (x_test, y_test) = get_preprocessed_data()
