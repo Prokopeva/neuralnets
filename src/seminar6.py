@@ -15,7 +15,7 @@ PATH_TO_DATA = 'data/raw/cats_dogs_train'
 PATH_TO_MODEL = 'models/model_6'
 BUCKET_NAME = 'neuralnets2023'
 # todo fix your git user name and copy .env to project root
-YOUR_GIT_USER = 'labintsev'
+YOUR_GIT_USER = 'Prokopeva'
 
 
 def download_data():
@@ -34,19 +34,109 @@ def download_data():
         print('Data is already extracted!')
 
 
+def load_data():
+    num_skipped = 0
+    for folder_name in ("Cat", "Dog"):
+        folder_path = os.path.join(os.path.join(PATH_TO_DATA, "PetImages"), folder_name)
+        for fname in os.listdir(folder_path):
+            fpath = os.path.join(folder_path, fname)
+            try:
+                fobj = open(fpath, "rb")
+                is_jfif = b"JFIF" in fobj.peek(10)
+            finally:
+                fobj.close()
+
+            if not is_jfif:
+                num_skipped += 1
+                # Delete corrupted image
+                os.remove(fpath)
+
+    print(f"Deleted {num_skipped} images.")
+
+    image_size = (180, 180)
+    batch_size = 128
+
+    train_ds, val_ds = tf.keras.utils.image_dataset_from_directory(
+        os.path.join(PATH_TO_DATA, "PetImages"),
+        validation_split=0.2,
+        subset="both",
+        seed=1337,
+        image_size=image_size,
+        batch_size=batch_size,
+    )
+
+    return train_ds, val_ds
+
+
 def make_model(input_shape, num_classes):
-    model = None
-    return model
+    inputs = tf.keras.Input(shape=input_shape)
+
+    # Entry block
+    x = tf.keras.layers.Rescaling(1.0 / 255)(inputs)
+    x = tf.keras.layers.Conv2D(128, 3, strides=2, padding="same")(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation("relu")(x)
+
+    previous_block_activation = x  # Set aside residual
+
+    for size in [256, 512, 728]:
+        x = tf.keras.layers.Activation("relu")(x)
+        x = tf.keras.layers.SeparableConv2D(size, 3, padding="same")(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+
+        x = tf.keras.layers.Activation("relu")(x)
+        x = tf.keras.layers.SeparableConv2D(size, 3, padding="same")(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+
+        x = tf.keras.layers.MaxPooling2D(3, strides=2, padding="same")(x)
+
+        # Project residual
+        residual = tf.keras.layers.Conv2D(size, 1, strides=2, padding="same")(
+            previous_block_activation
+        )
+        x = tf.keras.layers.add([x, residual])  # Add back residual
+        previous_block_activation = x  # Set aside next residual
+
+    x = tf.keras.layers.SeparableConv2D(1024, 3, padding="same")(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation("relu")(x)
+
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    if num_classes == 2:
+        units = 1
+    else:
+        units = num_classes
+
+    x = tf.keras.layers.Dropout(0.25)(x)
+    # We specify activation=None so as to return logits
+    outputs = tf.keras.layers.Dense(units, activation=None)(x)
+    return tf.keras.Model(inputs, outputs)
 
 
 def train():
     """Pipeline: Build, train and save model to models/model_6"""
     # Todo: Copy some code from seminar5 and https://keras.io/examples/vision/image_classification_from_scratch/
     print('Training model')
-    model = make_model()
+    image_size = (180, 180)
+    batch_size = 128
+    train_ds, val_ds = load_data()
+    model = make_model(image_size + (3,), 2)
+    epochs = 10
+
+    callbacks = [
+        tf.keras.callbacks.ModelCheckpoint("save_at_{epoch}.keras"),
+    ]
+
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(3e-4),
+        loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+        metrics=[tf.keras.metrics.BinaryAccuracy(name="acc")],
+    )
+
     model.fit(
         train_ds,
         epochs=epochs,
+        callbacks=callbacks,
         validation_data=val_ds,
     )
     model.save(PATH_TO_MODEL)
@@ -60,7 +150,7 @@ def upload():
                         format='zip',
                         root_dir=PATH_TO_MODEL)
 
-    config = dotenv.dotenv_values('.env')
+    config = dotenv.dotenv_values('../.env')
 
     ACCESS_KEY = config['ACCESS_KEY']
     SECRET_KEY = config['SECRET_KEY']
