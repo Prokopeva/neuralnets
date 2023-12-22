@@ -50,7 +50,7 @@ def make_model():
     return recurrent_model
 
 
-def load_data(csv_path='../data/raw/spam.csv') -> tuple:
+def load_data(csv_path='data/raw/spam.csv') -> tuple:
     df = pd.read_csv(csv_path)
     X = df.x.astype('str')
     Y = df.y.astype('int')
@@ -79,7 +79,7 @@ def validate(model_path='models/model_7') -> tuple:
     todo achieve >0.95 both accuracy and precision
     """
     model = tf.keras.models.load_model(model_path)
-    X_test, Y_test = load_data('../data/raw/spam_test.csv')
+    X_test, Y_test = load_data('data/raw/spam_test.csv')
 
     tok = tf.keras.preprocessing.text.Tokenizer(num_words=MAX_WORDS)
     tok.fit_on_texts(X_test)
@@ -109,7 +109,7 @@ def upload():
         aws_access_key_id=ACCESS_KEY,
         aws_secret_access_key=SECRET_KEY
     )
-    client.upload_file(zip_model_path, BUCKET_NAME, f'{YOUR_GIT_USER}/model_7_s3.zip')
+    client.upload_file(zip_model_path, BUCKET_NAME, f'{YOUR_GIT_USER}/model_7.zip')
     print('Upload succeed.')
 
 
