@@ -69,7 +69,6 @@ def train():
     model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy', tf.keras.metrics.Precision()])
     model.fit(sequences_matrix, Y_train, batch_size=128, epochs=10, validation_split=0.2)
     model.save('models/model_7')
-    return tok
 
 
 def validate(model_path='models/model_7') -> tuple:
