@@ -43,7 +43,7 @@ def make_model():
     """
     inputs = tf.keras.layers.Input(name='inputs', shape=[MAX_SEQ_LEN])
     x = tf.keras.layers.Embedding(MAX_WORDS, output_dim=4, input_length=MAX_SEQ_LEN)(inputs)
-    x = tf.keras.layers.SimpleRNN(units=4)(x)
+    x = tf.keras.layers.LSTM(units=16)(x)
     x = tf.keras.layers.Dense(1, name='out_layer')(x)
     x = tf.keras.layers.Activation('sigmoid')(x)
     recurrent_model = tf.keras.Model(inputs=inputs, outputs=x)
@@ -79,9 +79,9 @@ def validate(model_path='models/model_7') -> tuple:
     """
     model = tf.keras.models.load_model(model_path)
     X_test, Y_test = load_data('data/raw/spam_test.csv')
-
+    X_train, Y_train = load_data()
     tok = tf.keras.preprocessing.text.Tokenizer(num_words=MAX_WORDS)
-    tok.fit_on_texts(X_test)
+    tok.fit_on_texts(X_train)
     test_sequences = tok.texts_to_sequences(X_test)
     test_sequences_matrix = tf.keras.preprocessing.sequence.pad_sequences(test_sequences, maxlen=MAX_SEQ_LEN)
 
